@@ -272,13 +272,14 @@ class WarehouseMovementsAPIView(APIView):
         if movement == "report":
             rows = (
                 expense_items
-                .values("farmer__massive__district__name")
+                .values("date", "farmer__massive__district__name")
                 .annotate(quantity=Coalesce(Sum("items__quantity"), Decimal("0.00")))
-                .order_by("farmer__massive__district__name")
+                .order_by("-date", "farmer__massive__district__name")
             )
             return Response(
                 [
                     {
+                        "date": row.get("date"),
                         "district_name": row.get("farmer__massive__district__name") or "-",
                         "quantity": row.get("quantity") or Decimal("0.00"),
                     }
