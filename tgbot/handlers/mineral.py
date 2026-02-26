@@ -1,6 +1,6 @@
 from aiogram import F, Router
 from aiogram.types import BufferedInputFile, CallbackQuery, Message
-from datetime import datetime
+from datetime import date, datetime
 
 from excel_export import warehouse_expenses_to_excel, warehouse_receipts_to_excel
 from keyboards import (
@@ -48,6 +48,45 @@ def _format_date_ddmmyyyy(value) -> str:
             continue
 
     return date_text[:10]
+
+def _date_key(value) -> str:
+    if not value:
+        return ""
+
+    date_text = str(value).strip()
+    normalized = date_text.replace("Z", "+00:00")
+
+    try:
+        return datetime.fromisoformat(normalized).strftime("%Y-%m-%d")
+    except ValueError:
+        pass
+
+    for date_format in ("%Y-%m-%d", "%d.%m.%Y"):
+        try:
+            return datetime.strptime(date_text[:10], date_format).strftime("%Y-%m-%d")
+        except ValueError:
+            continue
+
+    return date_text[:10]
+
+
+def _report_rows_by_district(items: list[dict]) -> list[dict]:
+    today_key = date.today().strftime("%Y-%m-%d")
+    district_totals: dict[str, dict] = {}
+
+    for item in items:
+        district_name = (item.get("district_name") or "-").strip() or "-"
+        quantity = float(item.get("quantity") or 0)
+        record = district_totals.setdefault(
+            district_name,
+            {"district_name": district_name, "today_quantity": 0.0, "total_quantity": 0.0},
+        )
+        record["total_quantity"] += quantity
+
+        if _date_key(item.get("date")) == today_key:
+            record["today_quantity"] += quantity
+
+    return sorted(district_totals.values(), key=lambda row: row["district_name"])
 
 
 async def _warehouse_map():
@@ -121,14 +160,19 @@ async def warehouse_report_districts_handler(message: Message):
         return
 
     warehouse_name = warehouse_map.get(warehouse_id, "Омбор")
-    districts = await get_warehouse_expense_districts(warehouse_id=warehouse_id)
-    if not districts:
-        await message.answer(f"🏬 {warehouse_name}\n\nСвод бўйича туманлар топилмади.")
+    products = await get_warehouse_products(warehouse_id=warehouse_id, movement="out")
+    if not products:
+        await message.answer(f"🏬 {warehouse_name}\n\n📊 Свод бўйича маълумот топилмади.")
         return
 
     await message.answer(
-        f"🏬 {warehouse_name}\n📊 Свод учун туманни танланг:",
-        reply_markup=warehouse_expense_districts_inline_keyboard(warehouse_id, districts, section="report"),
+        f"🏬 {warehouse_name}\n📊 Свод учун маҳсулотни танланг:",
+        reply_markup=warehouse_products_inline_keyboard(
+            warehouse_id=warehouse_id,
+            movement="report",
+            products=products,
+            back_callback=f"warehouse_back_sections:{warehouse_id}",
+        ),
     )
 
 
@@ -355,13 +399,18 @@ async def _send_warehouse_movements_page(
             per_area = f"{float(item.get('quantity_per_area') or 0):.0f}"
             lines.append(f"{index:<3} {farmer_name:<16} {quantity:>8} {per_area:>6}")
     else:
+        report_rows = _report_rows_by_district(movements)
+        page_items = report_rows[start:end]
         lines.append("📊 Свод деталлари:")
-        lines.append(f"{'№':<3} {'Туман':<16} {'Миқдори':>10}")
-        lines.append("-" * 33)
+        today_title = date.today().strftime("%d.%m.%Y")
+        lines.append(f"{'№':<3} {'Туман':<16} {'Бир кунда':>10} {'Миқдори':>10}")
+        lines.append(f"{'':<20} {'(' + today_title + ')':>10}")
+        lines.append("-" * 46)
         for index, item in enumerate(page_items, start=start + 1):
             district_name = (item.get("district_name") or "-")[:16]
-            quantity = f"{float(item.get('quantity') or 0):.0f}"
-            lines.append(f"{index:<3} {district_name:<16} {quantity:>10}")
+            today_quantity = f"{float(item.get('today_quantity') or 0):.0f}"
+            total_quantity = f"{float(item.get('total_quantity') or 0):.0f}"
+            lines.append(f"{index:<3} {district_name:<16} {today_quantity:>10} {total_quantity:>10}")
 
     content = "\n".join(lines)
 
@@ -374,7 +423,7 @@ async def _send_warehouse_movements_page(
         product_id=product_id,
         district_id=district_id,
         page=page,
-        has_next=end < len(movements),
+        has_next=end < (len(report_rows) if movement == "report" else len(movements)),
         back_callback=back_callback,
     )
     await message.edit_text(f"<pre>{content}</pre>", parse_mode="HTML", reply_markup=keyboard)
@@ -403,12 +452,12 @@ async def _send_warehouse_products_page(message, warehouse_id: int, movement: st
         movement_token = f"out_d{district_id}"
         section = "out"
     elif movement == "report":
-        movement_token = f"report_d{district_id}"
+        movement_token = "report"
         section = "report"
 
     back_callback = (
         f"warehouse_back_sections:{warehouse_id}"
-        if movement == "in"
+        if movement in {"in", "report"}
         else f"warehouse_back_to_districts:{warehouse_id}:{section}"
     )
 
@@ -442,7 +491,7 @@ async def warehouse_export_filtered_handler(callback: CallbackQuery):
         file_buffer = await warehouse_receipts_to_excel(data)
         filename = "warehouse_receipts.xlsx"
     elif movement == "report":
-        file_buffer = await warehouse_expenses_to_excel(data, mode="report")
+        file_buffer = await warehouse_expenses_to_excel(_report_rows_by_district(data), mode="report")
         filename = "warehouse_report.xlsx"
     else:
         file_buffer = await warehouse_expenses_to_excel(data)
@@ -480,8 +529,8 @@ async def warehouse_export_handler(callback: CallbackQuery):
     if actual_movement == "in":
         file_buffer = await warehouse_receipts_to_excel(data)
         filename = "warehouse_receipts.xlsx"
-    elif report_mode:
-        file_buffer = await warehouse_expenses_to_excel(data, mode="report")
+    elif actual_movement == "report":
+        file_buffer = await warehouse_expenses_to_excel(_report_rows_by_district(data), mode="report")
         filename = "warehouse_report.xlsx"
     else:
         file_buffer = await warehouse_expenses_to_excel(data)
