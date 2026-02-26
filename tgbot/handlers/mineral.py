@@ -401,6 +401,8 @@ async def _send_warehouse_movements_page(
     else:
         report_rows = _report_rows_by_district(movements)
         page_items = report_rows[start:end]
+        total_today_quantity = sum(float(item.get("today_quantity") or 0) for item in report_rows)
+        total_quantity = sum(float(item.get("total_quantity") or 0) for item in report_rows)
         lines.append("📊 Свод деталлари:")
         today_title = date.today().strftime("%d.%m.%Y")
         lines.append(f"{'№':<3} {'Туман':<16} {'Бир кунда':>10} {'Миқдори':>10}")
@@ -409,8 +411,11 @@ async def _send_warehouse_movements_page(
         for index, item in enumerate(page_items, start=start + 1):
             district_name = (item.get("district_name") or "-")[:16]
             today_quantity = f"{float(item.get('today_quantity') or 0):.0f}"
-            total_quantity = f"{float(item.get('total_quantity') or 0):.0f}"
-            lines.append(f"{index:<3} {district_name:<16} {today_quantity:>10} {total_quantity:>10}")
+            district_total_quantity = f"{float(item.get('total_quantity') or 0):.0f}"
+            lines.append(f"{index:<3} {district_name:<16} {today_quantity:>10} {district_total_quantity:>10}")
+
+        lines.append("-" * 46)
+        lines.append(f"{'':<3} {'Жами':<16} {total_today_quantity:>10.0f} {total_quantity:>10.0f}")
 
     content = "\n".join(lines)
 
