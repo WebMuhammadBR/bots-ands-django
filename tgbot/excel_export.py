@@ -137,8 +137,8 @@ async def warehouse_expenses_to_excel(data: list[dict], mode: str = "out"):
                 {
                     "№": index,
                     "Туман": item.get("district_name") or "-",
-                    "Маҳсулот": item.get("product_name") or "-",
-                    "Миқдор": float(item.get("quantity") or 0),
+                    f"Бир кунда ({datetime.now().strftime('%d.%m.%Y')})": float(item.get("today_quantity") or 0),
+                    "Миқдори (умумий)": float(item.get("total_quantity") or item.get("quantity") or 0),
                 }
             )
             continue
