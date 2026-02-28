@@ -3,6 +3,7 @@ from decimal import Decimal
 from django.test import TestCase
 from rest_framework.test import APIClient
 
+from query.models.bot import BotUser, BotUserActivity
 from query.models.contracts import Contract
 from query.models.counterparties import Farmer
 from query.models.documents import GoodsGivenDocument, GoodsGivenItem, Warehouse
@@ -85,3 +86,53 @@ class WarehouseReportMovementsAPITest(TestCase):
         quantities_by_date = {str(item["date"]): Decimal(str(item["quantity"])) for item in response.data}
         self.assertEqual(quantities_by_date[today], Decimal("200.00"))
         self.assertEqual(quantities_by_date[previous_day], Decimal("400.00"))
+
+
+class BotUserActivityAnalyticsAPITest(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.user = BotUser.objects.create(
+            telegram_id=99887766,
+            full_name="Test User",
+            is_active=True,
+        )
+
+    def test_analytics_returns_users_timeline_and_hours(self):
+        BotUserActivity.objects.create(
+            user=self.user,
+            action_type=BotUserActivity.ACTION_MESSAGE,
+            action_name="start_handler",
+            action_payload="/start",
+            is_allowed=True,
+        )
+        BotUserActivity.objects.create(
+            user=self.user,
+            action_type=BotUserActivity.ACTION_CALLBACK,
+            action_name="contracts_menu",
+            action_payload="contracts",
+            is_allowed=True,
+        )
+
+        response = self.client.get('/api/bot-user/activity/analytics/')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data['users']), 1)
+        self.assertEqual(response.data['users'][0]['actions_count'], 2)
+        self.assertEqual(len(response.data['timeline']), 2)
+        self.assertEqual(len(response.data['by_hour']), 24)
+
+    def test_create_activity_endpoint_logs_event(self):
+        response = self.client.post(
+            '/api/bot-user/activity/',
+            {
+                'telegram_id': self.user.telegram_id,
+                'action_type': 'message',
+                'action_name': 'farmers_menu',
+                'action_payload': '📋 Фермерлар',
+                'is_allowed': True,
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(BotUserActivity.objects.filter(user=self.user, action_name='farmers_menu').exists())
