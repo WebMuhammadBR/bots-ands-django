@@ -11,13 +11,13 @@ PER_PAGE = 25
 
 CONTRACT_TYPE_ALL = "all"
 CONTRACT_TYPE_MAP = {
-    "📊 Умумий": CONTRACT_TYPE_ALL,
+    "📊 Ҳаммаси": CONTRACT_TYPE_ALL,
     "📑 Фючерс": "futures",
     "📑 Форвард": "forward",
     "📑 Сақлаш": "storage",
 }
 CONTRACT_TYPE_LABELS = {
-    CONTRACT_TYPE_ALL: "Умумий",
+    CONTRACT_TYPE_ALL: "Ҳаммаси",
     "futures": "Фючерс",
     "forward": "Форвард",
     "storage": "Сақлаш",
@@ -56,10 +56,16 @@ async def contracts_pagination(callback: CallbackQuery):
     await callback.answer()
 
 
-@router.callback_query(F.data == "contracts_back_to_filters")
+@router.callback_query(F.data.startswith("contracts_back_to_districts:"))
 @access_required
 async def contracts_back_to_filters(callback: CallbackQuery):
-    await callback.message.edit_text("Шартнома турини танлаш учун менюдан фойдаланинг 👇")
+    contract_type = callback.data.split(":", 1)[1]
+    data = await get_contracts_data(contract_type)
+    districts = extract_districts(data)
+    await callback.message.edit_text(
+        "Туманни танланг 👇",
+        reply_markup=contracts_filter_keyboard(districts, contract_type),
+    )
     await callback.answer()
 
 
@@ -70,8 +76,8 @@ async def send_page(target, page, district_index, contract_type, edit):
     filtered_data = filter_by_district(data, district)
     page_data, start, end = paginate_data(filtered_data, page, PER_PAGE)
 
-    district_title = "Умумий" if district == "all" else district
-    type_title = CONTRACT_TYPE_LABELS.get(contract_type, "Умумий")
+    district_title = "Ҳаммаси" if district == "all" else district
+    type_title = CONTRACT_TYPE_LABELS.get(contract_type, "Ҳаммаси")
 
     text = build_page_text(
         title=f"📑 Шартномалар ({type_title}): {district_title}",

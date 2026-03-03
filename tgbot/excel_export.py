@@ -73,7 +73,7 @@ CONTRACT_TYPE_LABELS = {
     "futures": "Фючерс",
     "forward": "Форвард",
     "storage": "Сақлаш",
-    "all": "Умумий",
+    "all": "Ҳаммаси",
 }
 
 
@@ -82,7 +82,7 @@ async def contracts_to_excel(data: list, contract_type: str = "all"):
         return None
 
     formatted = []
-    contract_type_label = CONTRACT_TYPE_LABELS.get(contract_type, "Умумий")
+    contract_type_label = CONTRACT_TYPE_LABELS.get(contract_type, "Ҳаммаси")
     for index, item in enumerate(data, start=1):
         formatted.append(
             {
