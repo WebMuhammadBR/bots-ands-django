@@ -44,7 +44,7 @@ class FarmerSummaryAPIView(ListAPIView):
         if contract_type in {"futures", "forward", "storage"}:
             contract_filter = Q(contracts__contract_type=contract_type)
 
-        return (
+        queryset = (
             Farmer.objects
             .select_related("massive__district__region")
             .annotate(
@@ -57,8 +57,12 @@ class FarmerSummaryAPIView(ListAPIView):
                     Decimal("0.00")
                 ),
             )
-            .order_by("massive__district__id", "massive__id")
         )
+
+        if contract_type in {"futures", "forward", "storage"}:
+            queryset = queryset.filter(contracts__contract_type=contract_type).distinct()
+
+        return queryset.order_by("massive__district__id", "massive__id")
 
 
 class MineralWarehouseReceiptListAPIView(ListAPIView):

@@ -59,7 +59,7 @@ def warehouse_movement_menu():
 contracts_type_menu = ReplyKeyboardMarkup(
     keyboard=[
         [
-            KeyboardButton(text="📊 Умумий"),
+            KeyboardButton(text="📊 Ҳаммаси"),
             KeyboardButton(text="📑 Фючерс"),
         ],
         [
@@ -121,7 +121,7 @@ def farmers_pagination_keyboard(page: int, has_next: bool, district_index: int):
 
 
 def contracts_filter_keyboard(districts: list[str], contract_type: str = "all"):
-    buttons = [[InlineKeyboardButton(text="📊 Умумий", callback_data=f"contracts_filter:{contract_type}:0:1")]]
+    buttons = [[InlineKeyboardButton(text="📊 Ҳаммаси", callback_data=f"contracts_filter:{contract_type}:0:1")]]
 
     for index, district in enumerate(districts, start=1):
         buttons.append(
@@ -161,7 +161,7 @@ def contracts_pagination_keyboard(page: int, has_next: bool, district_index: int
 
     buttons.append(row)
     buttons.append(
-        [InlineKeyboardButton(text="⬅️ Туманлар рўйхати", callback_data="contracts_back_to_filters")]
+        [InlineKeyboardButton(text="⬅️ Туманлар рўйхати", callback_data=f"contracts_back_to_districts:{contract_type}")]
     )
 
     return InlineKeyboardMarkup(inline_keyboard=buttons)
