@@ -106,7 +106,7 @@ async def send_page(target, page, district_index, contract_type, edit):
 @access_required
 async def contracts_excel(callback: CallbackQuery):
     _, contract_type, district_index = callback.data.split(":", 2)
-    data = await get_contracts_data(contract_type)
+    data = await get_contracts_excel_data(contract_type)
     districts = extract_districts(data)
     district = get_district_by_index(districts, int(district_index))
     filtered_data = filter_by_district(data, district)
@@ -133,6 +133,19 @@ async def get_contracts_data(contract_type: str):
     if contract_type == CONTRACT_TYPE_ALL:
         return await get_contracts_summary()
     return await get_contracts_summary(contract_type=contract_type)
+
+
+async def get_contracts_excel_data(contract_type: str):
+    if contract_type != CONTRACT_TYPE_ALL:
+        data = await get_contracts_summary(contract_type=contract_type)
+        return [{**item, "contract_type": contract_type} for item in data]
+
+    export_data = []
+    for contract_key in ("futures", "forward", "storage"):
+        typed_data = await get_contracts_summary(contract_type=contract_key)
+        export_data.extend({**item, "contract_type": contract_key} for item in typed_data)
+
+    return export_data
 
 
 def extract_districts(data: list[dict]) -> list[str]:
