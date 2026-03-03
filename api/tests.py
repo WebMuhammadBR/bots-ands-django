@@ -136,3 +136,44 @@ class BotUserActivityAnalyticsAPITest(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertTrue(BotUserActivity.objects.filter(user=self.user, action_name='farmers_menu').exists())
+
+
+class FarmerSummaryContractTypeFilterAPITest(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+
+        region = Region.objects.create(name="Toshkent")
+        district = District.objects.create(region=region, name="Yangiyul")
+        massive = Massive.objects.create(district=district, name="Massiv-1")
+
+        self.farmer = Farmer.objects.create(
+            name="Farmer Filter",
+            inn="987654321",
+            massive=massive,
+            maydon=Decimal("5.00"),
+        )
+
+        Contract.objects.create(
+            farmer=self.farmer,
+            number="FUT-1",
+            contract_type="futures",
+            date="2026-01-01",
+            planned_quantity=Decimal("100.00"),
+            price=Decimal("1000.00"),
+        )
+        Contract.objects.create(
+            farmer=self.farmer,
+            number="FWD-1",
+            contract_type="forward",
+            date="2026-01-02",
+            planned_quantity=Decimal("50.00"),
+            price=Decimal("2000.00"),
+        )
+
+    def test_summary_filters_by_contract_type(self):
+        response = self.client.get('/api/farmers/summary/', {'contract_type': 'forward'})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(Decimal(str(response.data[0]['quantity'])), Decimal('50.00'))
+        self.assertEqual(Decimal(str(response.data[0]['amount'])), Decimal('100000.00'))
