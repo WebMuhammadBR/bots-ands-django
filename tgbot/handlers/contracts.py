@@ -105,7 +105,7 @@ async def contracts_excel(callback: CallbackQuery):
     district = get_district_by_index(districts, int(district_index))
     filtered_data = filter_by_district(data, district)
 
-    file_buffer = await contracts_to_excel(filtered_data)
+    file_buffer = await contracts_to_excel(filtered_data, contract_type=contract_type)
 
     if not file_buffer:
         await callback.answer("Маълумот йўқ", show_alert=True)

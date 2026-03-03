@@ -69,15 +69,25 @@ async def farmers_to_excel(data: list):
     return buffer
 
 
-async def contracts_to_excel(data: list):
+CONTRACT_TYPE_LABELS = {
+    "futures": "Фючерс",
+    "forward": "Форвард",
+    "storage": "Сақлаш",
+    "all": "Умумий",
+}
+
+
+async def contracts_to_excel(data: list, contract_type: str = "all"):
     if not data:
         return None
 
     formatted = []
+    contract_type_label = CONTRACT_TYPE_LABELS.get(contract_type, "Умумий")
     for index, item in enumerate(data, start=1):
         formatted.append(
             {
                 "№": index,
+                "Шартнома тури": contract_type_label,
                 "Вилоят": item["region"],
                 "Туман": item["district"],
                 "Массив": item["massive"],
