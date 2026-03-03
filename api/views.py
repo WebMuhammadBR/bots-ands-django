@@ -1,6 +1,6 @@
 from decimal import Decimal
 
-from django.db.models import Sum, Min, Max, Count
+from django.db.models import Sum, Min, Max, Count, Q
 from django.db.models.functions import Coalesce
 from rest_framework.generics import ListAPIView
 from rest_framework.response import Response
@@ -39,16 +39,21 @@ class FarmerSummaryAPIView(ListAPIView):
     serializer_class = FarmerSummarySerializer
 
     def get_queryset(self):
+        contract_type = self.request.query_params.get("contract_type")
+        contract_filter = Q()
+        if contract_type in {"futures", "forward", "storage"}:
+            contract_filter = Q(contracts__contract_type=contract_type)
+
         return (
             Farmer.objects
             .select_related("massive__district__region")
             .annotate(
                 quantity=Coalesce(
-                    Sum("contracts__planned_quantity"),
+                    Sum("contracts__planned_quantity", filter=contract_filter),
                     Decimal("0.00")
                 ),
                 amount=Coalesce(
-                    Sum("contracts__total_amount"),
+                    Sum("contracts__total_amount", filter=contract_filter),
                     Decimal("0.00")
                 ),
             )

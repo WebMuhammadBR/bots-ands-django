@@ -33,9 +33,15 @@ async def get_farmers():
             return await resp.json()
 
 
-async def get_contracts_summary():
+async def get_contracts_summary(contract_type: str | None = None):
+    params = {}
+    if contract_type:
+        params["contract_type"] = contract_type
+
+    query = f"?{urlencode(params)}" if params else ""
+
     async with aiohttp.ClientSession() as session:
-        async with session.get(f"{API_BASE_URL}/farmers/summary/") as resp:
+        async with session.get(f"{API_BASE_URL}/farmers/summary/{query}") as resp:
             return await resp.json()
 
 
